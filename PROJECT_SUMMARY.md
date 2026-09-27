@@ -1,220 +1,83 @@
-# Project Summary: AI-Powered Website Cloning Agent
+# Project Summary
 
-## What Was Built
+What was built, what is verified, and what is knowingly imperfect.
 
-A complete **AI-powered frontend website cloning agent** that:
+## Scope delivered
 
-1. **Analyzes any public website** using Puppeteer browser automation
-2. **Extracts UI/UX data**: colors, typography, layout, sections, components, navigation
-3. **Generates React/Next.js code** using OpenAI GPT-4o
-4. **Supports natural language modifications**: "Change color to blue", "Add testimonials section"
-5. **Provides local preview** of generated code
-6. **Validates output** for common errors and TypeScript compliance
+A working AI agent, not a demo scaffold: given a public URL it analyzes the site, plans a
+component architecture, generates a real Next.js project, **installs and builds it for real**,
+repairs build failures with the AI, serves it on its own port, and then applies natural-language
+edits to the same project with a rebuild and preview restart.
 
-## Technical Stack
+| Requirement | Status | Where |
+|---|---|---|
+| URL input and site analysis | done | `src/lib/analyzer.ts`, `/api/analyze` |
+| AI-generated React/Next.js code (not an iframe or copy) | done | `src/lib/planner.ts`, `src/lib/generator.ts` |
+| Generated code is valid and buildable | done | `src/lib/builder.ts`, repair loop in `src/lib/pipeline.ts` |
+| Working local preview | done | `src/lib/preview.ts`, `/preview` page |
+| Natural-language modification | done | `/api/modify`, modification panel in `src/app/page.tsx` |
+| Generalization (no site-specific hacks) | done | heuristics + prompts only; zero hardcoded domains |
+| Error handling and transparency | done | status-classified retries, agent logs, step failures |
+| Cost awareness | done | compact structured spec instead of raw HTML, changed-files-only modification |
 
-- **Framework**: Next.js 16 (App Router)
-- **Language**: TypeScript (100% typed)
-- **Styling**: Tailwind CSS
-- **Web Scraping**: Puppeteer + Cheerio
-- **AI Model**: OpenAI GPT-4o
-- **Build Tool**: Turbopack
-- **Package Manager**: npm
+## Code inventory
 
-## Architecture
+About 2,570 lines of TypeScript: 8 modules in `src/lib/` (analyzer 276, ai 227, generator 246,
+pipeline 198, types 81, preview 77, planner 66, builder 91, jobs 46), 5 typed API routes
+(166 lines total), the pipeline UI (731), the generated-site index (126) and design-system
+components (211). No database, no external service beyond the AI provider and the target site.
 
-```
-User Input (URL)
-    ↓
-Frontend UI (Next.js)
-    ↓
-API Route: /api/analyze
-    ↓
-Website Analyzer (Puppeteer + Cheerio)
-    ↓
-Structured Analysis Data
-    ↓
-API Route: /api/generate
-    ↓
-AI Code Generator (GPT-4o)
-    ↓
-Generated Next.js Files
-    ↓
-Validator + Preview
-    ↓
-AI Modification Loop
-```
+## Verified end to end
 
-## Key Features
+- **apple.com full run** — analysis reported 11 sections / 7 component types / 12 colors; the
+  pipeline completed all five stages, the AI repair cycle patched `Hero.tsx`, the rebuild passed,
+  and the preview served HTTP 200 with genuine Apple content at `http://localhost:4100`.
+- **example.com full run** — reached `Ready` in 262s with 0 repair attempts, 12 agent log lines,
+  project `site-muk9jyr6-s1d0y`, preview reachable at `http://localhost:4105`.
+- **Cloner app production build** — `npm run build` compiles, TypeScript passes, `/`, `/preview`
+  and `/_not-found` prerender as static, the 5 API routes stay dynamic, no warnings.
+- **UI verification suite** — 27 automated Puppeteer assertions against a live job: no horizontal
+  overflow at 1440/834/390 widths, real metrics rendered, all five steps present, log lines
+  tone-coded, preview CTA reachable, modification panel gated correctly, zero console errors.
+- **Error classifier** — import-based checks confirmed 429/5xx/transport blips retry with backoff
+  while 401/403/400 fail immediately with their own message.
 
-### 1. Website Analysis (`src/lib/analyzer.ts`)
-- Browser-based scraping with Puppeteer
-- Extracts computed colors from all elements
-- Detects typography (fonts, sizes)
-- Identifies page sections and structure
-- Finds navigation items and sticky behavior
-- Detects reusable components (cards, modals, carousels, etc.)
-- Captures responsive breakpoints from CSS
+## Bugs found and fixed during development
 
-### 2. AI Code Generation (`src/lib/generator.ts`)
-- Converts analysis to structured prompts
-- Generates complete Next.js project structure
-- Returns files as parseable JSON
-- Supports modification via natural language
-- Lazy API key initialization for build safety
+These are the interesting ones; each was diagnosed from real output rather than guessed.
 
-### 3. Frontend UI (`src/app/page.tsx`)
-- Clean, step-by-step interface
-- URL input with validation
-- Real-time analysis results display
-- Generated file browser
-- AI modification textarea
-- Error handling with user feedback
+1. **Generated builds died prerendering `/_global-error`** ("Cannot read properties of null
+   (reading 'useContext')"). Two independent causes: the model emitted its own Next.js error
+   boundary, and `next build` inherited `NODE_ENV=development` from the parent `next dev`
+   process. Fixed by banning and filtering special route files in `generator.ts`, and by a
+   sanitized `buildEnv()` in `builder.ts`. Proven by reproducing the failure with
+   `NODE_ENV=development npm run build` (exit 1) versus `production` (exit 0).
+2. **In-flight jobs were killed by the dev watcher** because generated projects lived inside the
+   app directory. Output root moved to the sibling `generated-sites/`.
+3. **Retry logic keyed on error text** retried auth failures and skipped network blips. Replaced
+   with HTTP-status-first classification plus separate non-retryable reason patterns.
+4. **A retired fallback model returned 404** and was correctly treated as fatal; the default
+   chain was re-probed and set to `gemini-3.6-flash,gemini-3.1-flash-lite`.
+5. **Free-tier quota is per model**, so a single fallback was not enough — the config is now an
+   ordered chain that the pipeline walks before reporting unavailability.
 
-### 4. Code Validation (`src/lib/validator.ts`)
-- Syntax checking (brackets, exports)
-- TypeScript type usage verification
-- Console.log detection
-- TODO/FIXME flagging
-- Essential file presence check
-- Cost estimation for API calls
+## Known limitations, stated plainly
 
-## Project Structure
+- **Repair responses can be too large.** The repair prompt returns whole files; a multi-file fix
+  can exceed `maxTokens: 8192` and come back unparsable ("No JSON found in model output"). The
+  planned fix is one-file-at-a-time repair.
+- **Modify jobs reuse the clone step template**, so steps 4 and 5 stay pending in the UI even
+  though modify only needs three.
+- **Job state is in-memory** — restarting the app clears history and stops preview children. No
+  queue, no persistence, single instance.
+- **Visual fidelity is approximate**, images are hotlinked from the source, and auth-gated or
+  extremely slow client-rendered pages are not captured well.
+- `cheerio` is declared in `package.json` but unused since the analyzer does everything in one
+  in-browser pass; it can be dropped.
 
-```
-website-cloner/ (28KB core code)
-├── src/
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── analyze/route.ts      (1.2KB) - Analysis endpoint
-│   │   │   └── generate/route.ts     (1.1KB) - Generation endpoint
-│   │   ├── page.tsx                  (8.7KB) - Main UI
-│   │   └── preview/page.tsx          (1.8KB) - Code preview
-│   └── lib/
-│       ├── analyzer.ts               (9.1KB) - Website scraper
-│       ├── generator.ts              (5.9KB) - AI code generator
-│       └── validator.ts              (3.9KB) - Code validator
-├── Documentation:
-│   ├── README.md                     - Full documentation
-│   ├── ARCHITECTURE.md               - System diagrams
-│   ├── DEMO_GUIDE.md                 - Video recording guide
-│   ├── QUICK_START.md                - Setup instructions
-│   └── SUBMISSION_CHECKLIST.md       - Submission checklist
-└── Config:
-    ├── package.json
-    ├── .env.example
-    └── .gitignore
-```
+## Suggested next iterations
 
-## How It Works
-
-### Step 1: User enters a URL
-```
-Input: https://example.com
-```
-
-### Step 2: Website is analyzed
-```
-Output: {
-  title: "Example Domain",
-  colors: ["rgb(0, 0, 0)", "rgb(255, 255, 255)", ...],
-  typography: { fonts: ["serif"], headingSizes: ["32px"] },
-  sections: [{ type: "main", content: "..." }],
-  navigation: { items: [], isSticky: false },
-  components: ["HeroSection", "Footer"],
-  ...
-}
-```
-
-### Step 3: AI generates code
-```
-Prompt: "Recreate this website as Next.js with these specs..."
-Response: {
-  files: [
-    { path: "src/app/page.tsx", content: "..." },
-    { path: "src/components/Navbar.tsx", content: "..." },
-    ...
-  ]
-}
-```
-
-### Step 4: User can modify with AI
-```
-Input: "Change primary color to blue"
-Output: Updated files with blue color scheme
-```
-
-## Assignment Requirements Met
-
-| Requirement | Status | Details |
-|-------------|--------|---------|
-| Accept public URL | ✅ | Validated input field |
-| Analyze website | ✅ | Puppeteer + Cheerio |
-| Extract UI data | ✅ | Colors, fonts, layout, sections |
-| Generate React/Next.js | ✅ | GPT-4o powered |
-| Reusable components | ✅ | Component detection |
-| Handle errors | ✅ | Validator + try-catch |
-| Local preview | ✅ | Code viewer interface |
-| AI modifications | ✅ | Natural language prompts |
-| Multiple websites | ✅ | No hardcoded sites |
-| TypeScript | ✅ | Full type safety |
-| No hosting | ✅ | Runs locally |
-
-## Evaluation Coverage
-
-- **Frontend recreation quality** (25%): AI-generated with visual accuracy
-- **AI Agent implementation** (20%): Complete pipeline
-- **Generalization** (20%): Dynamic analysis, works on any site
-- **Code quality** (15%): TypeScript, modular, clean
-- **Natural-language modification** (10%): Fully implemented
-- **Error handling** (5%): Validation + user feedback
-- **Cost awareness** (5%): Token estimation, single API call
-
-## To Run the Project
-
-```bash
-cd website-cloner
-npm install
-cp .env.example .env.local
-# Add your OPENAI_API_KEY to .env.local
-npm run dev
-# Visit http://localhost:3000
-```
-
-## Next Steps for Submission
-
-1. ✅ Code is complete and builds successfully
-2. ⏳ Add your OpenAI API key to `.env.local`
-3. ⏳ Test with a few websites
-4. ⏳ Record 5-10 minute demo video (follow DEMO_GUIDE.md)
-5. ⏳ Push to GitHub
-6. ⏳ Submit repository link + video
-
-## Strengths of This Implementation
-
-- **Clean architecture**: Clear separation of concerns
-- **Type safety**: 100% TypeScript with proper types
-- **Modular design**: Each module has single responsibility
-- **Error handling**: Graceful degradation with user feedback
-- **Documentation**: Comprehensive guides for setup and demo
-- **Production-ready patterns**: Lazy initialization, validation, cost tracking
-- **Extensible**: Easy to add new AI providers or features
-
-## Honest Limitations
-
-- Dynamic/client-heavy sites may not fully render
-- Authentication-protected pages can't be scraped
-- Complex interactions need manual refinement
-- Images referenced but not downloaded
-- API costs ~$0.05-$0.15 per operation
-- Generated code may need minor fixes
-
----
-
-**Total Development Time**: ~2 hours
-**Lines of Core Code**: ~400 lines
-**Files Created**: 15+ (code + docs)
-**Build Status**: ✅ Passing
-**Ready for Demo**: ✅ Yes
-
-This MVP demonstrates strong AI engineering skills, practical problem-solving, and production-quality code architecture. Good luck with your submission!
+1. File-scoped repair (single file per AI call) to remove the truncation failure mode.
+2. Persist jobs and generated-project metadata so history survives restarts.
+3. Screenshot-diff scoring between the source page and the clone to measure recreation quality.
+4. Streaming (SSE) instead of 1.5s polling for step updates.

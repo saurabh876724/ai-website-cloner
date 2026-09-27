@@ -1,171 +1,97 @@
-# Submission Checklist for Soulstar AI - Founding AI Engineer Assignment
+# Submission Checklist
 
-## ✅ Completed Deliverables
+## Repository state
 
-### 1. Complete Codebase
-- [x] GitHub-ready project structure
-- [x] Next.js 14+ with App Router
-- [x] TypeScript throughout
-- [x] Tailwind CSS styling
-- [x] Clean, modular architecture
-- [x] Build passes successfully
+| Item | Status |
+|---|---|
+| Remote | https://github.com/saurabh876724/ai-website-cloner |
+| Branch | `main`, tracking `origin/main` |
+| Last pushed commit | `ec0a118` — "Add AI website-cloning agent: 5-stage pipeline with build validation" |
+| Visibility | public |
+| Secrets | `.env.local` is git-ignored; only `.env.example` with a placeholder is committed. No `AIza...` pattern exists in any tracked file, and the key is never logged or sent to the client |
+| Excluded from git | `node_modules/`, `.next/`, `*.tsbuildinfo`, `generated-sites/` |
+| Production build | `npm run build` passes: compiles, TypeScript clean, `/`, `/preview` and `/_not-found` prerendered, 5 dynamic API routes |
 
-**Files Created:**
-```
-website-cloner/
-├── src/
-│   ├── app/
-│   │   ├── api/
-│   │   │   ├── analyze/route.ts      # Website analysis API
-│   │   │   └── generate/route.ts     # Code generation API
-│   │   ├── page.tsx                  # Main UI
-│   │   └── preview/page.tsx          # Code preview
-│   └── lib/
-│       ├── analyzer.ts               # Puppeteer-based scraper
-│       ├── generator.ts              # OpenAI GPT-4o code generator
-│       └── validator.ts              # Code quality validator
-├── package.json
-── README.md
-├── ARCHITECTURE.md
-├── DEMO_GUIDE.md
-── QUICK_START.md
-├── .env.example
-└── .gitignore
-```
+## Deliverables
 
-### 2. Demo Video Guide
-- [x] Step-by-step recording guide created (DEMO_GUIDE.md)
-- [x] Covers all required elements:
-  - URL input and analysis
-  - AI code generation
-  - Generated website preview
-  - Responsive/mobile view
-  - Natural language modification
+- [x] Complete, runnable codebase (Next.js 16 App Router, TypeScript strict, Tailwind v4)
+- [x] README: setup, pipeline diagram, API routes, design decisions, limitations
+- [x] Architecture document: module map, data contracts, process/port model, error rules
+- [x] Quick-start and troubleshooting guide
+- [x] Agent pipeline: analysis -> planning -> generation -> build validation -> preview
+- [x] Natural-language modification of generated sites with rebuild and preview restart
+- [x] Real build validation with up to 2 AI repair rounds
+- [x] Live local preview per generated site (port 4100+)
+- [x] Quota-aware retry with exponential backoff and a fallback model chain
+- [x] Demo recording script (`DEMO_GUIDE.md`)
+- [ ] **Demo video, 5-10 minutes** — script ready; recording is still yours to do
+- [ ] **Submit the repo link and the video** through the application form
 
-**To record your demo video:**
-1. Follow `DEMO_GUIDE.md` for detailed steps
-2. Use OBS Studio, Loom, or QuickTime
-3. Keep it 5-10 minutes
-4. Show the complete workflow end-to-end
+## Requirement coverage
 
-### 3. README Documentation
-- [x] Setup instructions
-- [x] Architecture overview with diagram
-- [x] Technologies/models used
-- [x] Key implementation decisions
-- [x] Limitations section
-- [x] Evaluation coverage table
+| Requirement | Where it lives |
+|---|---|
+| Accept a public URL | URL form in `src/app/page.tsx`, validation in `src/lib/analyzer.ts` |
+| Analyze layout, sections, colors, typography | `src/lib/analyzer.ts` — one in-browser pass returning a structured spec |
+| Generate React/Next.js code (not an iframe) | `src/lib/planner.ts` + `src/lib/generator.ts` |
+| Reusable, typed components | generated `src/components/*`, planned by the AI planner |
+| Handle build/runtime errors | `src/lib/builder.ts` + repair loop in `src/lib/pipeline.ts` |
+| Working preview | `src/lib/preview.ts`, `/preview` page, "Open Preview" CTA |
+| AI-based modification | `/api/modify`, modification panel |
+| Generalize across websites | heuristics and prompts only; zero hardcoded domains |
+| TypeScript and clean architecture | typed modules and routes throughout |
+| Runs locally, no hosting required | `npm run dev` only; the Gemini key is the sole external dependency |
 
-### 4. Architecture Diagram
-- [x] ASCII diagram in ARCHITECTURE.md
-- [x] Shows data flow from URL → Analysis → Generation → Preview
-- [x] Component breakdown
-- [x] Technology stack table
+## Evaluation areas
 
-##  Assignment Requirements Coverage
+| Area | Weight | Evidence |
+|---|---|---|
+| Frontend recreation quality | 25% | structured spec (colors, typography, sections, layout, responsive hints) -> component plan -> Tailwind output; verified on apple.com and example.com |
+| AI agent implementation | 20% | five-stage job pipeline with live steps/logs, repair loop, modify flow |
+| Generalization | 20% | no per-site templates; the same code path handles any public URL |
+| Code quality and architecture | 15% | modular `src/lib`, typed API routes, clean production build |
+| Natural-language modification | 10% | changed-files-only modification, rebuild, preview restart |
+| Error handling | 5% | status-classified retries, honest failure messages, step-level errors |
+| Cost awareness | 5% | compact spec instead of raw HTML, file-scoped edits, bounded retries |
 
-| Requirement | Status | Implementation |
-|-------------|--------|----------------|
-| Accept public URL | ✅ | Input field + validation |
-| Analyze website | ✅ | Puppeteer + Cheerio scraper |
-| Extract layout/sections | ✅ | DOM parsing + heuristics |
-| Detect colors/typography | ✅ | Computed styles extraction |
-| Generate React/Next.js | ✅ | GPT-4o powered generation |
-| Reusable components | ✅ | Component detection + clean code |
-| Handle build errors | ✅ | Validator + error feedback |
-| Local preview | ✅ | Code viewer interface |
-| AI modifications | ✅ | Natural language prompt system |
-| Multiple websites | ✅ | No hardcoded sites |
-| TypeScript | ✅ | Full type safety |
-| No hosting required | ✅ | Runs locally only |
+## Before recording the video
 
-## 📊 Evaluation Areas
+1. Start fresh (`npm install`, `npm run dev`) so the terminal shows a clean boot.
+2. Check Gemini quota in AI Studio first — a mid-recording 429 across the whole model chain shows
+   a real error on screen.
+3. Pre-run one clone so a ready project already exists; record a second run live, then apply one
+   modification against the first project.
+4. Keep the Agent logs panel open — it is the strongest evidence that the pipeline is genuine.
 
-| Area | Weight | Implementation Notes |
-|------|--------|---------------------|
-| Frontend recreation quality | 25% | AI-generated with visual accuracy focus |
-| AI Agent implementation | 20% | Full pipeline: scrape → analyze → generate → modify |
-| Generalization across websites | 20% | Dynamic analysis, no templates |
-| Code quality & architecture | 15% | TypeScript, modular, clean separation |
-| Natural-language modification | 10% | GPT-4o with full context |
-| Error handling | 5% | Try-catch, validation, user feedback |
-| Cost awareness | 5% | Single API call per operation, token estimation |
+## Discussion prep
 
-##  Next Steps to Submit
+Be ready to explain:
 
-### Immediate Actions (Today)
+1. Why a headless-browser pass plus a structured spec rather than feeding raw HTML to the model.
+2. Why the scaffold is deterministic and only `src/**` is AI-authored.
+3. How malformed AI output is handled: tolerant JSON extraction, path normalization, filtering of
+   Next.js special route files, and a typed failure when nothing parses.
+4. How build validation works for real, what the repair loop feeds back, and why it is capped at 2.
+5. How transient vs fatal provider errors are distinguished, and why free-tier quota is per model.
+6. Scaling: what you would externalize (job queue, object storage for generated sites, worker
+   pool, per-tenant rate limiting) to serve many concurrent users.
+7. What you would add next: file-scoped repair, persisted jobs, screenshot-diff fidelity scoring,
+   SSE instead of polling.
 
-1. **Set up OpenAI API key**
-   ```bash
-   cd website-cloner
-   cp .env.example .env.local
-   # Edit .env.local and add your OPENAI_API_KEY
-   ```
+## Known limitations (state them yourself)
 
-2. **Test the application locally**
-   ```bash
-   npm run dev
-   # Visit http://localhost:3000
-   # Test with: https://example.com
-   ```
+- Client-heavy pages get a 2.5s hydration window; very slow SPAs may be partially captured.
+- Auth-protected pages cannot be analyzed.
+- Images are hotlinked from the source, not re-hosted.
+- Visual parity is approximate; complex interactions need manual refinement.
+- Repair responses spanning several files can exceed the token cap and fail to parse.
+- Job state is in-memory: restarting the app clears history and stops preview servers.
+- Cost per clone is one analysis plus roughly 2-4 Gemini calls; on the free tier the binding
+  constraint is per-model quota, not money.
 
-3. **Record demo video** (5-10 minutes)
-   - Follow DEMO_GUIDE.md
-   - Show all required features
-   - Keep under 10 minutes
+## If something breaks
 
-4. **Push to GitHub**
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit: AI Website Cloning Agent"
-   git remote add origin <your-repo-url>
-   git push -u origin main
-   ```
-
-5. **Submit assignment**
-   - Share GitHub repository link
-   - Attach demo video (or upload to YouTube/Loom)
-   - Include brief summary of approach
-
-### Optional Enhancements (If Time Permits)
-
-- Add Claude/Anthropic as alternative AI provider
-- Implement automated `next build` validation after generation
-- Add visual screenshot comparison feature
-- Create sample generated outputs for documentation
-
-## 💡 Technical Discussion Prep
-
-Be ready to discuss:
-
-1. **Architecture choices**: Why Puppeteer over static scraping? Why GPT-4o?
-2. **Website analysis**: How do you extract colors, detect components?
-3. **Code generation reliability**: How do you handle malformed AI output?
-4. **Error handling**: What happens when generation fails?
-5. **Visual accuracy**: How could you improve clone fidelity?
-6. **Cost optimization**: How would you reduce API costs at scale?
-7. **Scaling**: How would you handle 100 concurrent users?
-8. **Future improvements**: What would you add with more time?
-
-## ️ Known Limitations (Be Honest About These)
-
-- Dynamic/client-heavy sites may not fully render
-- Authentication-protected pages can't be analyzed
-- Complex interactions need manual refinement
-- Images referenced but not downloaded
-- Each operation costs ~$0.05-$0.15 in API credits
-- Generated code may need minor fixes
-- Third-party integrations not recreated
-
-##  Support
-
-If you encounter issues:
-- Check QUICK_START.md for troubleshooting
-- Verify OPENAI_API_KEY is set correctly
-- Ensure Node.js 18+ is installed
-- Review browser console for frontend errors
-
----
-
-**Good luck with your submission! The MVP demonstrates strong AI engineering skills, clean architecture, and practical problem-solving.**
+- Check `QUICK_START.md` troubleshooting first (provider quota, port conflicts, lost jobs, build
+  failures, Puppeteer's Chromium download).
+- Confirm `GEMINI_API_KEY` is set in `.env.local`, never exported to the browser.
+- Node.js 20+ (developed on 24.x).
