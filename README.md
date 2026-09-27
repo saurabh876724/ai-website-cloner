@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI-Powered Frontend Website Cloning Agent
 
-## Getting Started
+An AI agent that takes a publicly accessible website URL, analyzes its UI, generates a **real** Next.js/React implementation (not an iframe or embedded copy), builds and validates it locally, serves a local preview, and then modifies it through natural-language instructions.
 
-First, run the development server:
+## Setup
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # then fill in your key
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Environment variables (`.env.local`, server-side only — never sent to the browser)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Variable | Purpose |
+|---|---|
+| `GEMINI_API_KEY` | Google Gemini key (free tier: https://aistudio.google.com/app/api-keys) |
+| `USE_GEMINI` | `true` to use Gemini (default when key present) |
+| `GEMINI_MODEL` | e.g. `gemini-3.8-flash` (default). Transient 429/5xx/network failures retry 3x with 2s/4s/8s backoff; 401/403/400 config errors fail immediately with their own message |
+| `GEMINI_MODEL_FALLBACK` | Comma-separated chain (default `gemini-3.6-flash,gemini-3.1-flash-lite`) tried in order when the primary model is rate-limited or overloaded, since free-tier quota is per-model |
+| `OPENAI_API_KEY` | alternative provider |
+| `USE_OLLAMA` / `OLLAMA_BASE_URL` / `OLLAMA_MODEL` | alternative local provider |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Architecture
 
-## Learn More
+```
+USER → Website URL
+        ↓
+   [1] Website Analyzer        Puppeteer (headless Chrome): one in-browser pass
+        ↓                      extracts nav, sections, headings, text, buttons,
+   Structured Website Spec     links, images, colors, fonts, spacing, layout,
+                               responsive hints + compact DOM outline (no raw HTML)
+        ↓
+   [2] AI Planner              Gemini converts the compact spec into an
+        ↓                      implementation plan: components, hierarchy,
+   Implementation Plan         palette, spacing, responsive strategy
+        ↓
+   [3] Code Generator          deterministic scaffold (package.json, tsconfig,
+        ↓                      next.config, postcss) + Gemini-generated
+   generated-sites/<id>/       src/app + src/components (reusable components)
+   (sibling of the app dir —   kept OUTSIDE the Next.js project so the dev
+    never dev-watched)         watcher never restarts the server mid-pipeline
+        ↓
+   [4] Build Validator         npm install → next build (stdout/stderr/exit code)
+        ↓
+     build failed? ──YES──▶ AI Fix (errors + files → Gemini) → rewrite → rebuild
+        │                     (max 2 repair attempts)
+        NO
+        ↓
+   [5] Local Preview           next start on its own port (4100+), "Open Preview"
+        ↓
+   Natural-language modify ──▶ AI Code Modifier (only changed files)
+        ↓                       → Build Validator → restarted preview
+   Updated Preview
+```
 
-To learn more about Next.js, take a look at the following resources:
+### API routes
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Route | Method | Purpose |
+|---|---|---|
+| `/api/analyze` | POST | `{url}` → structured website analysis JSON |
+| `/api/clone` | POST | `{url}` → starts full pipeline, returns `{jobId}` |
+| `/api/jobs/[id]` | GET | pipeline status: stage, steps, logs, build status, repair attempts, preview URL |
+| `/api/modify` | POST | `{projectId, instruction}` → AI modification + rebuild + preview restart |
+| `/api/projects` | GET | list generated projects and running preview URLs |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The UI polls `/api/jobs/[id]` and renders the 5-step progress interface (Analysis → Planning → Generation → Build Validation → Preview), build status, repair attempts, elapsed time, and agent logs.
 
-## Deploy on Vercel
+### Modules
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- `src/lib/analyzer.ts` — Puppeteer scraping; single `page.evaluate` pass; returns the structured spec. Handles invalid URLs, unreachable sites, timeouts.
+- `src/lib/ai.ts` — provider layer (Gemini / OpenAI / Ollama via OpenAI-compatible API) + tolerant JSON extraction.
+- `src/lib/planner.ts` — analysis → implementation plan (compact prompt, no raw HTML).
+- `src/lib/generator.ts` — deterministic scaffold + AI app-code generation; writes to `generated-sites/<project-id>/`; path normalization and fallbacks for layout/globals.
+- `src/lib/builder.ts` — `npm install` / `next build` with captured output; AI repair from build errors.
+- `src/lib/preview.ts` — per-project `next start` on port 4100+, readiness polling, stop/restart.
+- `src/lib/pipeline.ts` — orchestrates clone and modify jobs, repair loop (max 2), status transitions.
+- `src/lib/jobs.ts` — in-memory job store with step/log helpers.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Key implementation decisions
+
+1. **Structured spec, not raw HTML** — the analyzer summarizes the page (colors by frequency, section samples, DOM outline ≤60 lines) so prompts stay small and cheap; full HTML never reaches the model.
+2. **Deterministic scaffold + AI app code** — config files (package.json/tsconfig/next.config/postcss) are generated by code, not the model, so builds are predictable; the AI only writes `src/**`.
+3. **Real build validation** — generated projects are genuinely installed and built with `next build`; failures (with truncated stderr) go back to the AI for up to 2 repair rounds.
+4. **Separate preview servers** — each clone runs its own `next start` on port 4100+, fully isolated from the cloner app.
+5. **Async job pipeline** — long-running work runs server-side; the browser polls status, so no request timeouts and live step feedback.
+6. **Provider-agnostic AI layer** — Gemini by default; OpenAI or local Ollama via the same interface.
+
+## Limitations
+
+- Client-heavy/SPA pages are given 2.5s to hydrate; very slow apps may be partially captured.
+- Auth-protected pages cannot be analyzed.
+- Images are hotlinked from the source (or placeholders), not re-hosted.
+- Generated clones approximate visual fidelity; pixel-perfect parity is out of MVP scope.
+- Each clone costs one analysis + ~2–4 Gemini calls plus a local npm install/build (~1–3 min).
+- Jobs are in-memory: restarting the dev server clears job history (generated projects persist on disk).
+
+## Evaluation coverage
+
+| Area | Weight | Where |
+|---|---|---|
+| Frontend recreation quality | 25% | analyzer spec + planner visual notes + Tailwind generation |
+| AI Agent implementation | 20% | 5-stage pipeline with job orchestration |
+| Generalization | 20% | no hardcoded sites; heuristics + AI only |
+| Code quality & architecture | 15% | TypeScript, modular libs, typed API routes |
+| Natural-language modification | 10% | `/api/modify` + rebuild + preview restart |
+| Error handling | 5% | URL/site/build/AI-JSON failure paths, repair loop |
+| Cost awareness | 5% | compact prompts, file-scoped modifications |
