@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { AppHeader } from '@/components/ui/AppHeader';
-import { Cube, ExternalLink, Globe } from '@/components/ui/icons';
+import { ExternalLink, Globe } from '@/components/ui/icons';
+import { SiteFrameGlyph } from '@/components/ui/illustrations';
 
 interface Project {
   id: string;
@@ -53,19 +54,19 @@ export default function PreviewPage() {
           <ul className="space-y-2.5" aria-busy="true" aria-label="Loading generated sites">
             {[0, 1, 2].map((i) => (
               <li key={i} className="card flex items-center gap-3 p-4">
-                <span className="h-9 w-9 shrink-0 animate-pulse rounded-lg bg-zinc-100" />
+                <span className="skeleton h-9 w-9 shrink-0 rounded-lg" />
                 <span className="flex-1 space-y-2">
-                  <span className="block h-3 w-1/3 animate-pulse rounded bg-zinc-100" />
-                  <span className="block h-2.5 w-1/4 animate-pulse rounded bg-zinc-100" />
+                  <span className="skeleton block h-3 w-1/3 rounded" />
+                  <span className="skeleton block h-2.5 w-1/4 rounded" />
                 </span>
-                <span className="h-8 w-28 animate-pulse rounded-lg bg-zinc-100" />
+                <span className="skeleton h-8 w-28 rounded-lg" />
               </li>
             ))}
           </ul>
         ) : projects.length === 0 ? (
-          <div className="card p-10 text-center">
-            <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-ink-subtle">
-              <Cube className="h-5 w-5" />
+          <div className="card bg-dot-grid p-10 text-center">
+            <span className="mx-auto flex h-12 w-14 items-center justify-center">
+              <SiteFrameGlyph className="h-12 w-14 opacity-70" />
             </span>
             <p className="mt-3 text-sm font-medium text-ink">No generated sites yet</p>
             <p className="mx-auto mt-1 max-w-sm text-sm text-ink-muted">
@@ -83,8 +84,8 @@ export default function PreviewPage() {
                 className="card flex flex-col gap-3 p-4 transition-shadow duration-200 hover:shadow-lift sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-canvas text-brand-600">
-                    <Cube className="h-4 w-4" />
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center">
+                    <SiteFrameGlyph className="h-8 w-9" />
                   </span>
                   <div className="min-w-0">
                     <p className="truncate font-mono text-sm font-medium text-ink" title={p.id}>

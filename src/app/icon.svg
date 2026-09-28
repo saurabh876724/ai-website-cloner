@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="AI Website Cloner">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#27272a" />
+      <stop offset="1" stop-color="#0f0f11" />
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="8" fill="url(#tile)" />
+  <g fill="none" stroke="#a5b4fc" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="6.5" y="10.5" width="16" height="13" rx="2.5" />
+    <path d="M6.5 14.5h16" />
+  </g>
+  <g stroke="#a5b4fc" stroke-width="1.5" stroke-linecap="round" opacity="0.55">
+    <path d="M9.5 18h7.5M9.5 20.5h10" />
+  </g>
+  <circle cx="9.3" cy="12.5" r="0.95" fill="#818cf8" />
+  <path d="M24.5 3.4 25.7 6l2.6 1.2-2.6 1.2-1.2 2.6-1.2-2.6L19.7 7.2l2.6-1.2z" fill="#6366f1" />
+</svg>

@@ -10,7 +10,7 @@ const STATUS_TREATMENT: Record<string, { dot: string; text: string; label: strin
 export function AppHeader({ status = 'idle' }: { status?: keyof typeof STATUS_TREATMENT }) {
   const s = STATUS_TREATMENT[status] ?? STATUS_TREATMENT.idle;
   return (
-    <header className="sticky top-0 z-20 border-b border-line bg-surface/85 backdrop-blur-md">
+    <header className="sticky top-0 z-20 border-b border-line bg-surface/85 backdrop-blur-md relative">
       <div className="mx-auto flex h-16 max-w-5xl items-center gap-3 px-4 sm:px-6">
         <LogoMark />
         <div className="min-w-0">
@@ -24,7 +24,14 @@ export function AppHeader({ status = 'idle' }: { status?: keyof typeof STATUS_TR
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <span className="hidden items-center gap-2 rounded-full border border-line bg-canvas px-3 py-1 text-xs font-medium sm:inline-flex">
-            <span className={`h-1.5 w-1.5 rounded-full ${s.dot}`} aria-hidden />
+            <span className={`relative flex h-1.5 w-1.5 rounded-full ${s.dot}`}>
+              {status === 'running' && (
+                <span
+                  aria-hidden
+                  className="animate-marker-ping absolute inset-0 rounded-full bg-brand-500 motion-reduce:hidden"
+                />
+              )}
+            </span>
             <span className={s.text}>{s.label}</span>
             <span className="sr-only" aria-live="polite">
               Agent status: {s.label}
@@ -39,6 +46,7 @@ export function AppHeader({ status = 'idle' }: { status?: keyof typeof STATUS_TR
           </a>
         </div>
       </div>
+      <div className="brand-hairline pointer-events-none absolute inset-x-0 bottom-0" aria-hidden />
     </header>
   );
 }
